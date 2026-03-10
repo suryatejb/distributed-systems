@@ -1,6 +1,6 @@
 ﻿package raft
 
-import "github.com/surya/rpc"
+import "github.com/suryatejb/rpc"
 import "log"
 import "sync"
 import "testing"

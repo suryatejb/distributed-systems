@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/surya/rpc"
+	"github.com/suryatejb/rpc"
 )
 
 func init() {
