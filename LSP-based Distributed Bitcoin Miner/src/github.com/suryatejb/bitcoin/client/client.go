@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -9,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/suryatejb/bitcoin"
 	"github.com/suryatejb/lsp"
 )
 
@@ -51,19 +53,45 @@ func main() {
 
 	defer client.Close()
 
-	_ = message  // Keep compiler happy. Please remove!
-	_ = maxNonce // Keep compiler happy. Please remove!
-	// TODO: implement this!
+	// Create and send the mining request
+	requestMsg := bitcoin.NewRequest(message, 0, maxNonce)
+	payload, err := json.Marshal(requestMsg)
+	if err != nil {
+		printDisconnected()
+		return
+	}
 
-	printResult(0, 0)
+	err = client.Write(payload)
+	if err != nil {
+		printDisconnected()
+		return
+	}
+
+	// Wait for the result from the server
+	responsePayload, err := client.Read()
+	if err != nil {
+		printDisconnected()
+		return
+	}
+
+	// Unmarshal the result
+	var resultMsg bitcoin.Message
+	err = json.Unmarshal(responsePayload, &resultMsg)
+	if err != nil {
+		printDisconnected()
+		return
+	}
+
+	// Print the result
+	printResult(resultMsg.Hash, resultMsg.Nonce)
 }
 
-// printResult prints the final result to stdout.
+// printResult prints the final mining result to stdout in format "Result <hash> <nonce>".
 func printResult(hash, nonce uint64) {
 	fmt.Println("Result", hash, nonce)
 }
 
-// printDisconnected prints a disconnected message to stdout.
+// printDisconnected prints "Disconnected" to stdout when the client loses connection to the server.
 func printDisconnected() {
 	fmt.Println("Disconnected")
 }

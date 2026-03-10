@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -8,20 +9,37 @@ import (
 	"os"
 	"time"
 
+	"github.com/suryatejb/bitcoin"
 	"github.com/suryatejb/lsp"
 )
 
-// Attempt to connect miner as a client to the server.
+// joinWithServer connects to the mining server and sends a Join message to register as a miner.
 func joinWithServer(hostport string) (lsp.Client, error) {
 	// You will need this for randomized isn
 	seed := rand.NewSource(time.Now().UnixNano())
 	isn := rand.New(seed).Intn(int(math.Pow(2, 8)))
 
-	_ = isn // Keep compiler happy. Please remove!
+	// Connect to the server
+	client, err := lsp.NewClient(hostport, isn, lsp.NewParams())
+	if err != nil {
+		return nil, err
+	}
 
-	// TODO: implement this!
+	// Send Join message to register as a miner
+	joinMsg := bitcoin.NewJoin()
+	payload, err := json.Marshal(joinMsg)
+	if err != nil {
+		client.Close()
+		return nil, err
+	}
 
-	return nil, nil
+	err = client.Write(payload)
+	if err != nil {
+		client.Close()
+		return nil, err
+	}
+
+	return client, nil
 }
 
 var LOGF *log.Logger
@@ -55,5 +73,49 @@ func main() {
 
 	defer miner.Close()
 
-	// TODO: implement this!
+	// Main mining loop: receive jobs, compute hashes, send results
+	for {
+		// Read job request from server
+		payload, err := miner.Read()
+		if err != nil {
+			// Server closed or network error - exit
+			return
+		}
+
+		// Unmarshal the request
+		var jobRequest bitcoin.Message
+		err = json.Unmarshal(payload, &jobRequest)
+		if err != nil {
+			continue
+		}
+
+		// Compute the minimum hash over the given range
+		minHash := uint64(math.MaxUint64)
+		minNonce := uint64(0)
+
+		for nonce := jobRequest.Lower; nonce <= jobRequest.Upper; nonce++ {
+			hash := bitcoin.Hash(jobRequest.Data, nonce)
+			if hash < minHash {
+				minHash = hash
+				minNonce = nonce
+			}
+			// Break if we've reached the upper bound to avoid wraparound
+			if nonce == jobRequest.Upper {
+				break
+			}
+		}
+
+		// Send result back to server
+		resultMsg := bitcoin.NewResult(minHash, minNonce)
+		resultPayload, err := json.Marshal(resultMsg)
+		if err != nil {
+			return
+		}
+
+		err = miner.Write(resultPayload)
+		if err != nil {
+			// Write error - exit
+			return
+		}
+	}
 }
