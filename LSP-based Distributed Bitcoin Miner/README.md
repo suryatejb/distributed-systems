@@ -1,4 +1,4 @@
-﻿# LSP-based Distributed Bitcoin Miner
+﻿# distributed-bitcoin-miner
 
 A distributed Bitcoin mining system built on top of a custom reliable transport protocol implemented over UDP in Go. The project is split into two layers: a reliable messaging protocol (LSP) and a distributed compute system that uses it to coordinate Bitcoin hash mining across multiple workers.
 
